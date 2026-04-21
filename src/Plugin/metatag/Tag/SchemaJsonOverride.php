@@ -1,6 +1,6 @@
 <?php
 
-namespace Drupal\custom_schema_metatag\Plugin\metatag\Tag;
+namespace Drupal\custom_schema_override\Plugin\metatag\Tag;
 
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\metatag\Plugin\metatag\Tag\MetaNameBase;
@@ -62,9 +62,9 @@ class SchemaJsonOverride extends MetaNameBase {
     return [
       '#tag' => 'meta',
       '#attributes' => [
-        'name' => 'aai_schema_json_override',
+        'name' => 'custom_schema_json_override',
         'content' => $value,
-        'aai_schema_json_override' => TRUE,
+        'custom_schema_json_override' => TRUE,
       ],
     ];
   }

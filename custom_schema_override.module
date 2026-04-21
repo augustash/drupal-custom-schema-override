@@ -2,7 +2,7 @@
 
 /**
  * @file
- * AAI Schema JSON Override module.
+ * Custom Schema JSON Override module.
  */
 
 /**
@@ -15,7 +15,7 @@
  * This hook must run after schema_metatag_page_attachments_alter(). The
  * ordering is enforced by hook_module_implements_alter() below.
  */
-function custom_schema_metatag_page_attachments_alter(array &$attachments): void {
+function custom_schema_override_page_attachments_alter(array &$attachments): void {
   if (empty($attachments['#attached']['html_head'])) {
     return;
   }
@@ -23,7 +23,7 @@ function custom_schema_metatag_page_attachments_alter(array &$attachments): void
   // Locate the marker meta tag emitted by SchemaJsonOverride::output().
   $custom_json = NULL;
   foreach ($attachments['#attached']['html_head'] as $key => $item) {
-    if (!empty($item[0]['#attributes']['aai_schema_json_override'])) {
+    if (!empty($item[0]['#attributes']['custom_schema_json_override'])) {
       $custom_json = $item[0]['#attributes']['content'] ?? NULL;
       unset($attachments['#attached']['html_head'][$key]);
       break;
@@ -78,10 +78,10 @@ function custom_schema_metatag_page_attachments_alter(array &$attachments): void
  * Moves our hook_page_attachments_alter() to the end of the invocation list
  * so it runs after schema_metatag has assembled its JSON-LD script tag.
  */
-function custom_schema_metatag_module_implements_alter(array &$implementations, string $hook): void {
-  if ($hook === 'page_attachments_alter' && isset($implementations['custom_schema_metatag'])) {
-    $impl = $implementations['custom_schema_metatag'];
-    unset($implementations['custom_schema_metatag']);
-    $implementations['custom_schema_metatag'] = $impl;
+function custom_schema_override_module_implements_alter(array &$implementations, string $hook): void {
+  if ($hook === 'page_attachments_alter' && isset($implementations['custom_schema_override'])) {
+    $impl = $implementations['custom_schema_override'];
+    unset($implementations['custom_schema_override']);
+    $implementations['custom_schema_override'] = $impl;
   }
 }

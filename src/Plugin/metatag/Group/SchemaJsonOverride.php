@@ -1,6 +1,6 @@
 <?php
 
-namespace Drupal\custom_schema_metatag\Plugin\metatag\Group;
+namespace Drupal\custom_schema_override\Plugin\metatag\Group;
 
 use Drupal\metatag\Plugin\metatag\Group\GroupBase;
 
