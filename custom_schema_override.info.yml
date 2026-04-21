@@ -1,0 +1,7 @@
+name: 'Custom Schema JSON Override'
+type: module
+description: 'Provides a custom JSON-LD field in the metatag sidebar that overrides schema_metatag structured data output when populated.'
+core_version_requirement: ^10 || ^11
+dependencies:
+  - drupal:metatag
+  - schema_metatag:schema_metatag

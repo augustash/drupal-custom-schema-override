@@ -1,0 +1,87 @@
+<?php
+
+/**
+ * @file
+ * AAI Schema JSON Override module.
+ */
+
+/**
+ * Implements hook_page_attachments_alter().
+ *
+ * If the schema_json_override metatag field is populated with valid JSON-LD,
+ * this removes all schema_metatag structured data and replaces it with the
+ * custom value.
+ *
+ * This hook must run after schema_metatag_page_attachments_alter(). The
+ * ordering is enforced by hook_module_implements_alter() below.
+ */
+function custom_schema_metatag_page_attachments_alter(array &$attachments): void {
+  if (empty($attachments['#attached']['html_head'])) {
+    return;
+  }
+
+  // Locate the marker meta tag emitted by SchemaJsonOverride::output().
+  $custom_json = NULL;
+  foreach ($attachments['#attached']['html_head'] as $key => $item) {
+    if (!empty($item[0]['#attributes']['aai_schema_json_override'])) {
+      $custom_json = $item[0]['#attributes']['content'] ?? NULL;
+      unset($attachments['#attached']['html_head'][$key]);
+      break;
+    }
+  }
+
+  if (empty($custom_json)) {
+    return;
+  }
+
+  // Re-encode through json_encode() using the same flags as schema_metatag.
+  // This validates the JSON a second time, Unicode-escapes angle brackets
+  // (JSON_HEX_TAG: < → <, > → >), and prevents any reliance on
+  // Drupal's render-layer XSS filter for correctness.
+  $decoded = json_decode($custom_json);
+  if ($decoded === NULL) {
+    return;
+  }
+  $safe_json = json_encode(
+    $decoded,
+    JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE
+  );
+  if ($safe_json === FALSE) {
+    return;
+  }
+
+  // Strip all schema_metatag individual property meta tags and any
+  // already-assembled JSON-LD script tag from schema_metatag.
+  foreach ($attachments['#attached']['html_head'] as $key => $item) {
+    $has_schema_attr = !empty($item[0]['#attributes']['schema_metatag']);
+    $is_schema_script = isset($item[1]) && $item[1] === 'schema_metatag';
+    if ($has_schema_attr || $is_schema_script) {
+      unset($attachments['#attached']['html_head'][$key]);
+    }
+  }
+
+  // Inject the custom JSON-LD using the same key schema_metatag would use.
+  $attachments['#attached']['html_head'][] = [
+    [
+      '#type' => 'html_tag',
+      '#tag' => 'script',
+      '#value' => $safe_json,
+      '#attributes' => ['type' => 'application/ld+json'],
+    ],
+    'schema_metatag',
+  ];
+}
+
+/**
+ * Implements hook_module_implements_alter().
+ *
+ * Moves our hook_page_attachments_alter() to the end of the invocation list
+ * so it runs after schema_metatag has assembled its JSON-LD script tag.
+ */
+function custom_schema_metatag_module_implements_alter(array &$implementations, string $hook): void {
+  if ($hook === 'page_attachments_alter' && isset($implementations['custom_schema_metatag'])) {
+    $impl = $implementations['custom_schema_metatag'];
+    unset($implementations['custom_schema_metatag']);
+    $implementations['custom_schema_metatag'] = $impl;
+  }
+}
