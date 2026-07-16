@@ -9,34 +9,76 @@
 use Drupal\Core\Url;
 
 /**
- * Implements hook_requirements().
+ * Implements hook_install().
  *
  * Metatag only shows a group on an entity bundle's edit form if that
  * bundle has no restriction configured, or if the group is explicitly
- * listed in its restriction. Sites that have already restricted a bundle
- * to a subset of groups (e.g. "Basic" only) will silently never see the
- * "Schema JSON Override" group -- and never render the override -- until
- * an admin adds it via the Metatag settings form. Rather than writing to
- * metatag.settings config automatically (which could be silently reverted
- * by a later `drush config:import` on sites that manage config through
- * the repo), surface it as a status report warning so it stays visible
- * until an admin fixes it and exports config themselves.
+ * listed in its restriction. As a one-time convenience at install, add
+ * "Schema JSON Override" to any bundle that's already restricted, so a
+ * team doesn't have to manually toggle it on for every existing bundle.
+ * This never runs again afterwards (e.g. on new bundle creation) -- it's
+ * intentionally a single pass at install time, paired with the
+ * `drush config:export` a module install already requires.
  */
-function custom_schema_override_requirements(string $phase): array {
-  if (!in_array($phase, ['runtime', 'update', 'install'], TRUE)) {
-    return [];
-  }
+function custom_schema_override_install(): void {
+  $config = \Drupal::configFactory()->getEditable('metatag.settings');
+  $entity_type_groups = $config->get('entity_type_groups') ?? [];
 
-  $entity_type_groups = \Drupal::config('metatag.settings')->get('entity_type_groups') ?? [];
-
-  $missing = [];
+  $changed = FALSE;
   foreach ($entity_type_groups as $entity_type_id => $bundles) {
     foreach ($bundles as $bundle => $groups) {
       if (!empty($groups) && !isset($groups['schema_json_override'])) {
-        $missing[] = "$entity_type_id:$bundle";
+        $entity_type_groups[$entity_type_id][$bundle]['schema_json_override'] = 'schema_json_override';
+        $changed = TRUE;
       }
     }
   }
+
+  if ($changed) {
+    $config->set('entity_type_groups', $entity_type_groups)->save();
+  }
+}
+
+/**
+ * Implements hook_uninstall().
+ *
+ * Removes the group from metatag's bundle restrictions so no dangling
+ * reference to a no-longer-existing group is left behind in config.
+ */
+function custom_schema_override_uninstall(): void {
+  $config = \Drupal::configFactory()->getEditable('metatag.settings');
+  $entity_type_groups = $config->get('entity_type_groups') ?? [];
+
+  $changed = FALSE;
+  foreach ($entity_type_groups as $entity_type_id => $bundles) {
+    foreach ($bundles as $bundle => $groups) {
+      if (isset($groups['schema_json_override'])) {
+        unset($entity_type_groups[$entity_type_id][$bundle]['schema_json_override']);
+        $changed = TRUE;
+      }
+    }
+  }
+
+  if ($changed) {
+    $config->set('entity_type_groups', $entity_type_groups)->save();
+  }
+}
+
+/**
+ * Implements hook_requirements().
+ *
+ * Safety net for the one-time sync in hook_install(): if the group was
+ * never exported after install, or a later `drush config:import` reverts
+ * metatag.settings to a config export that predates the sync, this keeps
+ * surfacing the gap on the Status Report and `drush updb` until it's
+ * fixed and re-exported, rather than failing silently.
+ */
+function custom_schema_override_requirements(string $phase): array {
+  if (!in_array($phase, ['runtime', 'update'], TRUE)) {
+    return [];
+  }
+
+  $missing = _custom_schema_override_missing_bundles();
 
   if (empty($missing)) {
     return [
@@ -59,4 +101,25 @@ function custom_schema_override_requirements(string $phase): array {
       'severity' => REQUIREMENT_WARNING,
     ],
   ];
+}
+
+/**
+ * Finds restricted metatag bundles missing the schema_json_override group.
+ *
+ * @return string[]
+ *   A list of "entity_type_id:bundle" strings.
+ */
+function _custom_schema_override_missing_bundles(): array {
+  $entity_type_groups = \Drupal::config('metatag.settings')->get('entity_type_groups') ?? [];
+
+  $missing = [];
+  foreach ($entity_type_groups as $entity_type_id => $bundles) {
+    foreach ($bundles as $bundle => $groups) {
+      if (!empty($groups) && !isset($groups['schema_json_override'])) {
+        $missing[] = "$entity_type_id:$bundle";
+      }
+    }
+  }
+
+  return $missing;
 }
