@@ -2,3 +2,5 @@
 
 - Provides a custom JSON-LD field in the metatag sidebar that overrides schema_metatag structured data output when populated.
 - Requires the use of the Drupal Metatag module along with the Drupal Schema Metatag module
+- Metatag only shows a group on a bundle's edit form if that bundle has no visible-groups restriction configured, or if the group is explicitly listed in its restriction. Bundles with no restriction already show all groups, including "Schema JSON Override," and need no action.
+- If a site has restricted a bundle's visible groups (`admin/config/search/metatag/settings`), the module will not enable "Schema JSON Override" for it automatically -- doing so would write to `metatag.settings` config, which can be silently reverted by a later `drush config:import` on sites that manage config through their repo. Instead, the module reports a warning on the Status Report (and during `drush updb`) listing any restricted bundle missing the group. Enable it manually on the settings form, then run `drush config:export`.
