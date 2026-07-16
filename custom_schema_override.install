@@ -23,7 +23,7 @@ use Drupal\Core\Url;
  * until an admin fixes it and exports config themselves.
  */
 function custom_schema_override_requirements(string $phase): array {
-  if (!in_array($phase, ['runtime', 'update'], TRUE)) {
+  if (!in_array($phase, ['runtime', 'update', 'install'], TRUE)) {
     return [];
   }
 
