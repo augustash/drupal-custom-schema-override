@@ -20,13 +20,17 @@ function custom_schema_override_page_attachments_alter(array &$attachments): voi
     return;
   }
 
-  // Locate the marker meta tag emitted by SchemaJsonOverride::output().
+  // Locate the marker meta tag(s) emitted by SchemaJsonOverride::output().
+  // Multiple entities contributing to the same page (e.g. blocks plus the
+  // main entity) could each emit a marker, so all of them must be found and
+  // stripped, not just the first. The first one found provides the value.
   $custom_json = NULL;
   foreach ($attachments['#attached']['html_head'] as $key => $item) {
     if (!empty($item[0]['#attributes']['custom_schema_json_override'])) {
-      $custom_json = $item[0]['#attributes']['content'] ?? NULL;
+      if ($custom_json === NULL) {
+        $custom_json = $item[0]['#attributes']['content'] ?? NULL;
+      }
       unset($attachments['#attached']['html_head'][$key]);
-      break;
     }
   }
 
